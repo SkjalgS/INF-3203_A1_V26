@@ -1,9 +1,7 @@
-import json
 import sys
 import cv2
 import urllib
 from typing import List
-from collections import Counter
 import numpy as np
 from PIL import Image
 import torch
@@ -90,36 +88,25 @@ if __name__ == "__main__":
     # Check for required arguments
     if len(sys.argv) != 2:
         print("Error: Missing required arguments")
-        print("Usage: python classify.py <input_video> <output_json>")
-        print("  input_video: Path to the input video file")
+        print("Usage: python classify.py <input_image>")
+        print("  input_image: Path to the input JPEG image file")
         sys.exit(1)
 
     # Parse arguments
-    input_file = sys.argv[1]
+    input_image = sys.argv[1]
 
-    # Initialize classifier and video capture
-    print(f"Reading from file {input_file}")
+    # Initialize classifier and load image
+    print(f"Reading image {input_image}")
     classifier = ImageClassificationPipeline()
-    cap = cv2.VideoCapture(input_file)
 
-    # Check if video opened successfully
-    if not cap.isOpened():
-        print(f"Error: Could not open video file '{input_file}'")
-        sys.exit(1)
+    # Read the image
+    frame = cv2.imread(input_image)
 
-    # Get total frames and read the first frame
-    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-    ret, frame = cap.read()
-
-    # Check if frame was read successfully
-    if not ret:
-        print("Error: Could not read frame from video")
+    # Check if image was read successfully
+    if frame is None:
+        print(f"Error: Could not open image file '{input_image}'")
         sys.exit(1)
 
     # Perform classification
     label = classifier(frame)
     print(label)
-
-    # Release resources
-    cap.release()
-    cv2.destroyAllWindows()
