@@ -3,6 +3,7 @@ import sys
 import cv2
 import urllib
 from typing import List
+from collections import Counter
 import numpy as np
 from PIL import Image
 import torch
@@ -39,7 +40,6 @@ class ImageClassificationPipeline:
             param.requires_grad = False
 
         self.categories = self._load_imagenet_labels()
-        self.all_labels = []
 
     def _load_imagenet_labels(self) -> List[str]:
         """Load ImageNet labels from a remote file.
@@ -79,55 +79,47 @@ class ImageClassificationPipeline:
             output = self.model(input_batch)
 
         probabilities = torch.nn.functional.softmax(output[0], dim=0)
-        top_prob, top_catid = torch.topk(probabilities, 1)
+        _, top_catid = torch.topk(probabilities, 1)
 
-        label = self.categories[top_catid[0]]
-        self.all_labels.append(label)
+        top_label = self.categories[top_catid[0]]
 
-        return label
+        return top_label
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 3:
+    # Check for required arguments
+    if len(sys.argv) != 2:
         print("Error: Missing required arguments")
         print("Usage: python classify.py <input_video> <output_json>")
         print("  input_video: Path to the input video file")
-        print("  output_json: Path to the output JSON file")
         sys.exit(1)
 
+    # Parse arguments
     input_file = sys.argv[1]
-    output_file = sys.argv[2]
 
+    # Initialize classifier and video capture
     print(f"Reading from file {input_file}")
-    print(f"Writing to file {output_file}")
-
     classifier = ImageClassificationPipeline()
-
     cap = cv2.VideoCapture(input_file)
+
+    # Check if video opened successfully
+    if not cap.isOpened():
+        print(f"Error: Could not open video file '{input_file}'")
+        sys.exit(1)
+
+    # Get total frames and read the first frame
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    ret, frame = cap.read()
 
-    i = 0
-    while cap.isOpened():
-        ret, frame = cap.read()
+    # Check if frame was read successfully
+    if not ret:
+        print("Error: Could not read frame from video")
+        sys.exit(1)
 
-        if not ret:
-            break
+    # Perform classification
+    label = classifier(frame)
+    print(label)
 
-        classifier(frame)
-
-        if cv2.waitKey(1) & 0xFF == ord("q"):
-            break
-        i += 1
-
-    # Get unique labels
-    return_labels = list(set(classifier.all_labels))
-
+    # Release resources
     cap.release()
     cv2.destroyAllWindows()
-
-    data = {"labels": return_labels}
-
-    with open(output_file, "a") as json_file:
-        json_file.write("\n")
-        print(f"Writing to file {output_file}")
-        json.dump(data, json_file)
